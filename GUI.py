@@ -5,75 +5,81 @@ import tkinter as tk
 from tkinter import simpledialog
 import pickle
 from datetime import datetime
-from main import Storage
+from db_connector import Database
 
 
 class App(ctk.CTk):
-    def __init__(self, file_name):
+    def __init__(self):
         super().__init__()
 
-        self.file_name = "data.pkl"
-
-        self.file_name = file_name
-        self.storage = self.load_storage_from_file()
+        self.db = Database()
 
         self.geometry("800,400")
         self.title("INVENTORY KEEPER")
 
-        self.file_name_label = ctk.CTkLabel(self, text=self.file_name)
-        self.file_name_label.grid(row=0, column=0, padx=10, pady=10)
+        self.brands = self.db.get_brands()
 
-        set_price_button = ctk.CTkButton(self, text="set price")
+        self.deliveries_frame = None
+        self.brands_frame = None
+        self.main_frame = ctk.CTkFrame(self)
+        self.main_frame.pack(side="left")
+        self.add_layout(self.main_frame)
+
+    def refresh(self):
+        self.brands_frame.update_from_list(self.brands)
+
+    def add_layout(self, target):
+
+        set_price_button = ctk.CTkButton(target, text="set price")
         set_price_button.grid(row=0, column=1, padx=10, pady=10)
 
-        save_button = ctk.CTkButton(self, text="Speichern", command=(lambda: self.save_all()))
-        save_button.grid(row=0, column=2, padx=10, pady=10)
+        empty_button1 = ctk.CTkButton(target, text="refresh",
+                                      command=lambda: self.refresh())
+        empty_button1.grid(row=0, column=2, padx=10, pady=10)
 
-        empty_button2 = ctk.CTkButton(self, text="empty2")
-        # empty_button2.grid(row=0, column=3, padx=10, pady=10)
+        self.deliveries_frame = ScrollableButtonFrame(target, "Lieferungen")
+        self.deliveries_frame.grid(row=1, column=0)
 
-        self.deliveries = ctk.CTkScrollableFrame(self)
-        self.deliveries.grid(row=1, column=0, padx=10, pady=10)
+        self.brands_frame = ScrollableButtonFrame(target, "Marken")
+        self.brands_frame.grid(row=1, column=1, padx=10, pady=10)
 
-        brands = ctk.CTkScrollableFrame(self)
-        brands.grid(row=1, column=1, padx=10, pady=10)
-
-        button_box = ctk.CTkFrame(self)
+        button_box = ctk.CTkFrame(target)
         button_box.grid(row=1, column=2, padx=10, pady=10)
 
-        add_button = ctk.CTkButton(button_box, text="Lieferung hinzufügen", command=(lambda: self.add_delivery()))
-        add_button.pack(side="top", padx=10, pady=10)
+        add_brand_button = ctk.CTkButton(button_box, text="Marke hinzufügen",
+                                         command=(lambda: self.add_brand()))
+        add_brand_button.pack(side="top", padx=10, pady=10)
 
-        add_button = ctk.CTkButton(button_box, text="Lieferung löschen")
-        add_button.pack(side="top", padx=10, pady=10)
+        delete_brand_button = ctk.CTkButton(button_box, text="Marke löschen")
+        delete_brand_button.pack(side="top", padx=10, pady=10)
 
-        add_button = ctk.CTkButton(button_box, text="Kiste hinzufügen")
-        add_button.pack(side="top", padx=10, pady=10)
+        add_delivery_button = ctk.CTkButton(button_box, text="Lieferung hinzufügen",
+                                            command=(lambda: self.add_delivery()))
+        add_delivery_button.pack(side="top", padx=10, pady=10)
 
-        remove_button = ctk.CTkButton(button_box, text="Kiste löschen")
-        remove_button.pack(side="top", padx=10, pady=10)
+        delete_delivery_button = ctk.CTkButton(button_box, text="Lieferung löschen")
+        delete_delivery_button.pack(side="top", padx=10, pady=10)
 
-        info_frame = ctk.CTkFrame(self)
+        add_crate_button = ctk.CTkButton(button_box, text="Kiste hinzufügen")
+        add_crate_button.pack(side="top", padx=10, pady=10)
+
+        remove_crate_button = ctk.CTkButton(button_box, text="Kiste löschen")
+        remove_crate_button.pack(side="top", padx=10, pady=10)
+
+        info_frame = ctk.CTkFrame(target)
         info_frame.grid(row=2, column=0, columnspan=2, padx=10)
 
         info_text_box = tk.Text(info_frame, font=("Arial", 20), height=10, width=50)
         info_text_box.pack(expand=True)
 
-        content_frame = ctk.CTkFrame(self)
+        content_frame = ctk.CTkFrame(target)
         content_frame.grid(row=2, column=2, padx=10, pady=10)
 
         content_text_box = tk.Text(content_frame, font=("Arial", 20), height=10, width=20)
         content_text_box.pack(expand=True)
 
-    def set_file_name(self, name):
-        self.file_name_label.configure(text=name)
-
-    def save_all(self):
-        open(self.file_name, "wb").close()
-        with open(self.file_name, "wb") as f:
-            pickle.dump(self.storage, f)
-        print("save_all successful")
-        tkinter.messagebox.showinfo("Information", "Save successful")
+    def print_all(self):
+        print(self.db.get_brands())
 
     def update_deliveries(self, delivery_list):
         if not len(self.deliveries.children) == len(delivery_list):
@@ -86,34 +92,45 @@ class App(ctk.CTk):
                 delivery_label.pack()
 
     def add_delivery(self):
-        answer = tkinter.messagebox.askyesnocancel("", "Soll die Lieferung mit dem heutigen Datum hinzugefügt werden?")
+        answer = tk.messagebox.askyesnocancel("", "Soll die Lieferung mit dem heutigen Datum hinzugefügt werden?")
         if answer is None:
             return
         if answer:
-            self.storage.add_delivery()
+            date = datetime.now().date().strftime("%d.%m.%Y")
         else:
             date = simpledialog.askstring("Datum", "Datum der Lieferung: (DD.MM.YYYY)")
-            date = datetime.strptime(date, "%d.%m.%Y")
-            self.storage.add_delivery(date)
+        price = simpledialog.askfloat("Kosten", "Wieviel hat die Lieferung gekostet? (OHNE PFAND)")
 
-    def load_storage_from_file(self):
-        try:
-            with open(self.file_name, "rb") as f:
-                self.storage = pickle.load(f)
-                if not isinstance(self.storage, Storage):
-                    Lager = Storage()
-                    print("Das Lager konnte nicht geladen werden und es wurde ein neues angelegt.")
-                else:
-                    print(f"Bestehendes Lager wurde aus der {file_name} Datei geladen")
-        except Exception as e:
-            print(e)
-            Lager = Storage()
-            print(f"Die Datei {file_name} enthält fehlerhafte / keine Daten, ein neues Lager wurde angelegt")
-            
+    def add_brand(self):
+        name = simpledialog.askstring("Brand Name", "Wie heißt die Marke?")
+        bottle_count = simpledialog.askinteger("Anzahl Flaschen", "Wieviele Flaschen sind in einem Kasten?")
+        self.db.add_brand(name, bottle_count)
 
 
+class ScrollableButtonFrame(ctk.CTkFrame):
+    def __init__(self, parent, title="",  **kwargs):
+        super().__init__(parent, **kwargs)
+        self.parent = parent
 
+        self.contents = []
 
+        self.title = ctk.CTkLabel(self, text=title)
+        self.title.pack(side="top", fill="x")
+        self.content_frame = ctk.CTkScrollableFrame(self)
+        self.content_frame.pack(side="top")
+
+    def add_item(self, name):
+        item_button = ctk.CTkButton(self.content_frame, text=name)
+        item_button.pack(side="top")
+        self.contents.append(item_button)
+
+    def update_from_list(self, content_list):
+        for i in self.contents:
+            i.destroy()
+        for content in content_list:
+            strings = [str(x) for x in content]
+            text = " | ".join(strings)
+            self.add_item(text)
 
 
 if __name__ == "__main__":
